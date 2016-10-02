@@ -152,8 +152,8 @@ NeP.FakeUnits.Add('NOC_NoDebuff', function(num, debuff)
 	local tempTable = {}
 	for i=1, #NeP.OM.unitEnemie do
 		local Obj = NeP.OM.unitEnemie[i]
-		--if (not NeP.DSL.Get('debuff')(Obj.key, debuff)) and (NeP.Engine.LineOfSight('player', Obj.key)) then
-		if not NeP.DSL.Get('debuff')(Obj.key, debuff) then
+		if (not NeP.DSL.Get('debuff')(Obj.key, debuff)) and (NeP.Engine.LineOfSight('player', Obj.key)) then
+		--if not NeP.DSL.Get('debuff')(Obj.key, debuff) then
 			tempTable[#tempTable+1] = {
 				key = Obj.key,
 				--prio = prio
@@ -167,13 +167,17 @@ NeP.FakeUnits.Add('NOC_NoDebuff', function(num, debuff)
 	return false
 end)
 
-NeP.DSL.RegisterConditon("castwithin", function(target, spell)
-	local SpellID = select(7, GetSpellInfo(spell))
-	for k, v in pairs( NeP.ActionLog.log ) do
-		local id = select(7, GetSpellInfo(v.description))
-		if (id and id == SpellID and v.event == "Spell Cast Succeed") or tonumber( k ) == 20 then
-			return tonumber( k )
-		end
-	end
-	return 20
-end)
+-- function NeP.Engine.Infront(a, b)
+-- 	if UnitExists(a) and UnitExists(b) then
+-- 		local aX, aY, aZ = GetPlayerMapPosition(a)
+-- 		local bX, bY, bZ = GetPlayerMapPosition(b)
+-- 		local playerFacing = GetPlayerFacing()
+-- 		local facing = math.atan2(bY - aY, bX - aX) % 6.2831853071796
+-- 		return math.abs(math.deg(math.abs(playerFacing - (facing)))-180) < 90
+-- 	end
+-- 	return false
+-- end
+
+-- function NeP.Engine.LineOfSight(_, b)
+-- 	return UnitExists(b) and NeP.Helpers.infront(b)
+-- end
