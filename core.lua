@@ -152,7 +152,8 @@ NeP.FakeUnits.Add('NOC_NoDebuff', function(num, debuff)
     local tempTable = {}
     for i=1, #NeP.OM.unitEnemie do
         local Obj = NeP.OM.unitEnemie[i]
-        if (not NeP.DSL.Get('debuff')(Obj.key, debuff)) and (NeP.Engine.LineOfSight('player', Obj.key)) then
+        --if (not NeP.DSL.Get('debuff')(Obj.key, debuff)) and (NeP.Engine.LineOfSight('player', Obj.key)) then
+				if not NeP.DSL.Get('debuff')(Obj.key, debuff) then
             tempTable[#tempTable+1] = {
                 key = Obj.key,
                 prio = prio
