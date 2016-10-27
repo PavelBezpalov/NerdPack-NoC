@@ -11,29 +11,32 @@ function NOC.Splash()
 end
 
 function NOC.tt()
-	if NeP.Unlocked and UnitAffectingCombat('player') then
+	if NeP.Unlocked and UnitAffectingCombat('player') and not NeP.DSL:Get('casting')('player', 'Fists of Fury') then
 		NeP:Queue('Transcendence: Transfer', 'player')
 	end
 end
 
 function NOC.ts()
-	if NeP.Unlocked and UnitAffectingCombat('player') then
+	if NeP.Unlocked and UnitAffectingCombat('player') and not NeP.DSL:Get('casting')('player', 'Fists of Fury') then
 		NeP:Queue('Transcendence', 'player')
 	end
 end
 
---math.randomseed( os.time() )
-local function shuffleTable( t )
-    local rand = math.random
-    assert( t, "shuffleTable() expected a table, got nil" )
-    local iterations = #t
-    local j
-
-    for i = iterations, 2, -1 do
-        j = rand(i)
-        t[i], t[j] = t[j], t[i]
-    end
-end
+NeP.FakeUnits:Add('NOC_sck', function(debuff)
+	for GUID, Obj in pairs(NeP.OM:Get('Enemy')) do
+		if UnitExists(Obj.key) then
+			if (NeP.DSL:Get('combat')(Obj.key) or Obj.isdummy) then
+				if (NeP.DSL:Get('infront')(Obj.key) and NeP.DSL:Get('inMelee')(Obj.key)) then
+					local _,_,_,_,_,_,debuffDuration = UnitDebuff(Obj.key, debuff, nil, 'PLAYER')
+					if not debuffDuration or debuffDuration - GetTime() < 1.5 then
+						--print("NOC_sck: returning "..Obj.name.." ("..Obj.key.." - "..Obj.guid..' :'..time()..")");
+						return Obj.key
+					end
+				end
+			end
+		end
+	end
+end)
 
 local MasterySpells = {
 	[100784] = '', -- Blackout Kick
@@ -52,65 +55,24 @@ local MasterySpells = {
 }
 local HitComboLastCast = ''
 
---NeP.Timer.Sync("windwalker_sync", 0.1, function()
---	if NeP.DSL:Get('toggle')(nil, 'mastertoggle') then
-		--if NeP.Interface.GetSelectedCR() then
---			--if not NeP.Engine.forcePause then
---				local LastCast = NeP.DSL:Get('lastcast')('player')
---				local _, _, _, _, _, _, spellID = GetSpellInfo(LastCast)
---				if spellID then
---					if not MasterySpells[spellID] then
---						-- If NeP.Engine.lastCast is in the MasterySpells list, set HitComboLastCast to this spellID
---						HitComboLastCast = spellID
---						--print("windwalker_sync flagging "..NeP.Engine.lastCast);
---					end
---				end
---			--end
---		--end
---	end
---end, 99)
+C_Timer.NewTicker(0.1, (function()
+	if NeP.DSL:Get('toggle')(nil, 'mastertoggle') then
+		if not UnitIsDeadOrGhost('player') and InCombatLockdown() then
+			--local LastCast = NeP.CombatTracker:LastCast('player')
+			local _, LastCast = NeP.DSL:Get('lastgcd')('player')
+			local _, _, _, _, _, _, spellID = GetSpellInfo(LastCast)
+			if spellID then
+				if MasterySpells[spellID] then
+					-- If NeP.Engine.lastCast is in the MasterySpells list, set HitComboLastCast to this spellID
+					HitComboLastCast = spellID
+					--print("windwalker_sync flagging "..LastCast);
+				end
+			end
+		end
+	end
+end), nil)
 
 NeP.Library:Add('NOC', {
-
-	AoEMissingDebuff = function(spell, debuff, range)
-		--if spell == nil or range == nil then return false end
-		--local spell = select(1,GetSpellInfo(spell))
-		--if not IsUsableSpell(spell) then return false end
-		--local enemies = NeP.OM['unitEnemie']
-		--for i=1,#enemies do
-		--	local Obj = enemies[i]
-		--	local isDummy = NeP.DSL:Get('isDummy')(Obj.key)
-		--	if Obj.distance <= range and (UnitAffectingCombat(Obj.key) or isDummy) then
-		--		local _,_,_,_,_,_,debuffDuration = UnitDebuff(Obj.key, debuff, nil, 'PLAYER')
-		--		if not debuffDuration or debuffDuration - GetTime() < 1.5 then
-		--			local skillType = GetSpellBookItemInfo(spell)
-		--			local isUsable, notEnoughMana = IsUsableSpell(spell)
-		--			if skillType ~= 'FUTURESPELL' and isUsable and not notEnoughMana then
-		--				local GCD = NeP.DSL:Get('gcd')()
-		--				if GetSpellCooldown(spell) <= GCD then
-		--					if NeP.Protected.LineOfSight('player', Obj.key) then
-		--						--print("AoEMissingDebuff: casting "..spell.." against "..Obj.name.." ("..Obj.key.." - "..time()..") - TTD="..NeP.CombatTracker.TimeToDie(Obj.key));
-		--						NeP_Queue(spell, Obj.key)
-		--						return true
-		--					end
-		--				end
-		--			end
-		--		end
-		--	end
-		--end
-		return false
-	end,
-
-	-- getGCD = function()
-	-- 	local CDTime, CDValue = 0, 0;
-	--   CDTime, CDValue = GetSpellCooldown(61304);
-	--   if CDTime == 0 or module.GetTime()-module.GetLatency() >= CDTime+CDValue then
-	--     return true;
-	--   else
-	--     return false;
-	--   end
-	-- end,
-
 	hitcombo = function(spell)
 		if not spell then return true end
 		local _, _, _, _, _, _, spellID = GetSpellInfo(spell)
@@ -125,16 +87,18 @@ NeP.Library:Add('NOC', {
 		return true
 	end,
 
+	-- for future use, call it via {"@NOC.synclast"}, at the TOP of the combat section
+	-- synclast = function()
+	-- 	local _, LastCast = NeP.DSL:Get('lastcast')('player')
+	-- 	local _, _, _, _, _, _, spellID = GetSpellInfo(LastCast)
+	-- 	if spellID then
+	-- 		if MasterySpells[spellID] then
+	-- 			-- If NeP.Engine.lastCast is in the MasterySpells list, set HitComboLastCast to this spellID
+	-- 			HitComboLastCast = spellID
+	-- 			--print("windwalker_sync flagging "..LastCast);
+	-- 		end
+	-- 	end
+	-- 	return false
+	-- end,
+
 })
-
-
-NeP.DSL:Register("castwithin", function(target, spell)
-	--local SpellID = select(7, GetSpellInfo(spell))
-	--for k, v in pairs( NeP.ActionLog.log ) do
-	--	local id = select(7, GetSpellInfo(v.description))
-	--	if (id and id == SpellID and v.event == "Spell Cast Succeed") or tonumber( k ) == 20 then
-	--		return tonumber( k )
-	--	end
-	--end
-	--return 20
-end)
